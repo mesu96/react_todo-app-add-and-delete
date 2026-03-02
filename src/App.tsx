@@ -154,17 +154,20 @@ export const App: React.FC = () => {
       });
   };
 
-  const handleDeleteTodo = (todoId: number) => {
+  const deleteTodoById = (todoId: number) => {
     setError(null);
 
-    setDeletingIds(current => [...current, todoId]);
+    setDeletingIds(current =>
+      current.includes(todoId) ? current : [...current, todoId],
+    );
 
-    deleteTodo(todoId)
+    return deleteTodo(todoId)
       .then(() => {
         setTodos(current => current.filter(t => t.id !== todoId));
       })
       .catch(() => {
         setError('Unable to delete a todo');
+        throw new Error('delete failed');
       })
       .finally(() => {
         setDeletingIds(current => current.filter(id => id !== todoId));
@@ -172,25 +175,15 @@ export const App: React.FC = () => {
       });
   };
 
-  const handleClearCompleted = () => {
-    setError(null);
+  const handleDeleteTodo = (todoId: number) => {
+    deleteTodoById(todoId);
+  };
 
+  const handleClearCompleted = () => {
     const completedTodos = todos.filter(t => t.completed);
 
     completedTodos.forEach(todo => {
-      setDeletingIds(current => [...current, todo.id]);
-
-      deleteTodo(todo.id)
-        .then(() => {
-          setTodos(current => current.filter(t => t.id !== todo.id));
-        })
-        .catch(() => {
-          setError('Unable to delete a todo');
-        })
-        .finally(() => {
-          setDeletingIds(current => current.filter(id => id !== todo.id));
-          newTodoFieldRef.current?.focus();
-        });
+      deleteTodoById(todo.id);
     });
   };
 
