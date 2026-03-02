@@ -168,7 +168,30 @@ export const App: React.FC = () => {
       })
       .finally(() => {
         setDeletingIds(current => current.filter(id => id !== todoId));
+        newTodoFieldRef.current?.focus();
       });
+  };
+
+  const handleClearCompleted = () => {
+    setError(null);
+
+    const completedTodos = todos.filter(t => t.completed);
+
+    completedTodos.forEach(todo => {
+      setDeletingIds(current => [...current, todo.id]);
+
+      deleteTodo(todo.id)
+        .then(() => {
+          setTodos(current => current.filter(t => t.id !== todo.id));
+        })
+        .catch(() => {
+          setError('Unable to delete a todo');
+        })
+        .finally(() => {
+          setDeletingIds(current => current.filter(id => id !== todo.id));
+          newTodoFieldRef.current?.focus();
+        });
+    });
   };
 
   if (!USER_ID) {
@@ -345,6 +368,7 @@ export const App: React.FC = () => {
               className="todoapp__clear-completed"
               data-cy="ClearCompletedButton"
               disabled={completedCount === 0}
+              onClick={handleClearCompleted}
             >
               Clear completed
             </button>
