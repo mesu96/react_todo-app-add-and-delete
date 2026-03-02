@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import classNames from 'classnames';
 
 import { UserWarning } from './UserWarning';
-import { USER_ID, getTodos } from './api/todos';
+import { USER_ID, addTodo, deleteTodo, getTodos } from './api/todos';
 import { Todo } from './types/Todo';
 
 type FilterStatus = 'all' | 'active' | 'completed';
@@ -16,8 +16,11 @@ export const App: React.FC = () => {
   const [filter, setFilter] = useState<FilterStatus>('all');
   const [error, setError] = useState<string | null>(null);
 
-  // Part 2: new todo input state (controlled input)
   const [newTitle, setNewTitle] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [tempTodo, setTempTodo] = useState<Todo | null>(null);
+
+  const [deletingIds, setDeletingIds] = useState<number[]>([]);
 
   const newTodoFieldRef = useRef<HTMLInputElement>(null);
 
@@ -28,8 +31,6 @@ export const App: React.FC = () => {
     }
 
     newTodoFieldRef.current?.focus();
-
-    // hide error before request
     setError(null);
 
     getTodos()
@@ -38,6 +39,13 @@ export const App: React.FC = () => {
         setError('Unable to load todos');
       });
   }, []);
+
+  // Keep input focused after any submit finishes
+  useEffect(() => {
+    if (!isSubmitting) {
+      newTodoFieldRef.current?.focus();
+    }
+  }, [isSubmitting]);
 
   // Auto-hide error after delay
   useEffect(() => {
@@ -102,7 +110,6 @@ export const App: React.FC = () => {
     setError(null);
   };
 
-  // Part 2: input handlers
   const handleNewTitleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setNewTitle(event.target.value);
   };
@@ -118,6 +125,50 @@ export const App: React.FC = () => {
 
       return;
     }
+
+    setError(null);
+    setIsSubmitting(true);
+
+    setTempTodo({
+      id: 0,
+      userId: USER_ID,
+      title: trimmedTitle,
+      completed: false,
+    });
+
+    addTodo({
+      userId: USER_ID,
+      title: trimmedTitle,
+      completed: false,
+    })
+      .then(createdTodo => {
+        setTodos(current => [...current, createdTodo]);
+        setNewTitle('');
+      })
+      .catch(() => {
+        setError('Unable to add a todo');
+      })
+      .finally(() => {
+        setIsSubmitting(false);
+        setTempTodo(null);
+      });
+  };
+
+  const handleDeleteTodo = (todoId: number) => {
+    setError(null);
+
+    setDeletingIds(current => [...current, todoId]);
+
+    deleteTodo(todoId)
+      .then(() => {
+        setTodos(current => current.filter(t => t.id !== todoId));
+      })
+      .catch(() => {
+        setError('Unable to delete a todo');
+      })
+      .finally(() => {
+        setDeletingIds(current => current.filter(id => id !== todoId));
+      });
   };
 
   if (!USER_ID) {
@@ -149,6 +200,7 @@ export const App: React.FC = () => {
               placeholder="What needs to be done?"
               value={newTitle}
               onChange={handleNewTitleChange}
+              disabled={isSubmitting}
             />
           </form>
         </header>
@@ -159,42 +211,86 @@ export const App: React.FC = () => {
           })}
           data-cy="TodoList"
         >
-          {filteredTodos.map(todo => (
-            <div
-              key={todo.id}
-              data-cy="Todo"
-              className={classNames('todo', { completed: todo.completed })}
-            >
+          {filteredTodos.map(todo => {
+            const isDeleting = deletingIds.includes(todo.id);
+
+            return (
+              <div
+                key={todo.id}
+                data-cy="Todo"
+                className={classNames('todo', { completed: todo.completed })}
+              >
+                <label className="todo__status-label">
+                  <input
+                    data-cy="TodoStatus"
+                    type="checkbox"
+                    className="todo__status"
+                    checked={todo.completed}
+                    readOnly
+                  />
+                </label>
+
+                <span data-cy="TodoTitle" className="todo__title">
+                  {todo.title}
+                </span>
+
+                {/* Remove button appears only on hover */}
+                <button
+                  type="button"
+                  className="todo__remove"
+                  data-cy="TodoDelete"
+                  onClick={() => handleDeleteTodo(todo.id)}
+                  disabled={isDeleting}
+                >
+                  ×
+                </button>
+
+                {/* overlay will cover the todo while it is being deleted or updated */}
+                <div
+                  data-cy="TodoLoader"
+                  className={classNames('modal overlay', {
+                    'is-active': isDeleting,
+                  })}
+                >
+                  <div className="modal-background has-background-white-ter" />
+                  <div className="loader" />
+                </div>
+              </div>
+            );
+          })}
+
+          {tempTodo && (
+            <div data-cy="Todo" className="todo">
               <label className="todo__status-label">
                 <input
                   data-cy="TodoStatus"
                   type="checkbox"
                   className="todo__status"
-                  checked={todo.completed}
+                  checked={false}
                   readOnly
                 />
               </label>
 
               <span data-cy="TodoTitle" className="todo__title">
-                {todo.title}
+                {tempTodo.title}
               </span>
 
-              {/* Remove button appears only on hover */}
               <button
                 type="button"
                 className="todo__remove"
                 data-cy="TodoDelete"
+                disabled
               >
                 ×
               </button>
 
-              {/* overlay will cover the todo while it is being deleted or updated */}
-              <div data-cy="TodoLoader" className="modal overlay">
+              {/* 'is-active' class puts this modal on top of the todo */}
+              <div data-cy="TodoLoader" className="modal overlay is-active">
                 <div className="modal-background has-background-white-ter" />
                 <div className="loader" />
               </div>
             </div>
-          ))}
+          )}
         </section>
 
         {/* Hide the footer if there are no todos */}
@@ -271,7 +367,6 @@ export const App: React.FC = () => {
           className="delete"
           onClick={handleHideError}
         />
-        {/* show only one message at a time */}
         {error}
       </div>
     </div>
