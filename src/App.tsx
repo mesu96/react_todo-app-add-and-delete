@@ -25,6 +25,27 @@ export const App: React.FC = () => {
 
   const newTodoFieldRef = useRef<HTMLInputElement>(null);
 
+  const filterLinks = [
+    {
+      key: 'all' as const,
+      href: '#/',
+      text: 'All',
+      dataCy: 'FilterLinkAll',
+    },
+    {
+      key: 'active' as const,
+      href: '#/active',
+      text: 'Active',
+      dataCy: 'FilterLinkActive',
+    },
+    {
+      key: 'completed' as const,
+      href: '#/completed',
+      text: 'Completed',
+      dataCy: 'FilterLinkCompleted',
+    },
+  ];
+
   // Load todos on mount
   useEffect(() => {
     if (!USER_ID) {
@@ -180,6 +201,7 @@ export const App: React.FC = () => {
     deleteTodoById(todoId);
   };
 
+  // ✅ CHANGED: use Promise.allSettled to avoid error flickering & keep success deletions
   const handleClearCompleted = async () => {
     const completedTodos = todos.filter(t => t.completed);
 
@@ -283,41 +305,20 @@ export const App: React.FC = () => {
 
             {/* Active link should have the 'selected' class */}
             <nav className="filter" data-cy="Filter">
-              <a
-                href="#/"
-                className={classNames('filter__link', {
-                  selected: filter === 'all',
-                })}
-                data-cy="FilterLinkAll"
-                data-filter="all"
-                onClick={handleFilterClick}
-              >
-                All
-              </a>
-
-              <a
-                href="#/active"
-                className={classNames('filter__link', {
-                  selected: filter === 'active',
-                })}
-                data-cy="FilterLinkActive"
-                data-filter="active"
-                onClick={handleFilterClick}
-              >
-                Active
-              </a>
-
-              <a
-                href="#/completed"
-                className={classNames('filter__link', {
-                  selected: filter === 'completed',
-                })}
-                data-cy="FilterLinkCompleted"
-                data-filter="completed"
-                onClick={handleFilterClick}
-              >
-                Completed
-              </a>
+              {filterLinks.map(link => (
+                <a
+                  key={link.key}
+                  href={link.href}
+                  className={classNames('filter__link', {
+                    selected: filter === link.key,
+                  })}
+                  data-cy={link.dataCy}
+                  data-filter={link.key}
+                  onClick={handleFilterClick}
+                >
+                  {link.text}
+                </a>
+              ))}
             </nav>
 
             {/* this button should be disabled if there are no completed todos */}
