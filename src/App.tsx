@@ -180,12 +180,18 @@ export const App: React.FC = () => {
     deleteTodoById(todoId);
   };
 
-  const handleClearCompleted = () => {
+  const handleClearCompleted = async () => {
     const completedTodos = todos.filter(t => t.completed);
 
-    completedTodos.forEach(todo => {
-      deleteTodoById(todo.id);
-    });
+    const results = await Promise.allSettled(
+      completedTodos.map(todo => deleteTodoById(todo.id)),
+    );
+
+    const hasError = results.some(result => result.status === 'rejected');
+
+    if (hasError) {
+      setError('Unable to delete a todo');
+    }
   };
 
   if (!USER_ID) {
